@@ -18,7 +18,7 @@
 
 int waitForConnection (int serverSocket);
 int makeServerSocket (int portno);
-void serveBMP (int socket, double x, double y, int zoom);
+void serveBMP (int socket, double x, double y, double zoom);
 void writeHeader (int socket);
 void calcPoint (int socket, double *seed, double x, double y, int iteration);
 
@@ -78,7 +78,11 @@ int main (int argc, char *argv[]) {
       int bytesRead;
       bytesRead = read (connectionSocket, request, (sizeof request)-1);
       assert (bytesRead >= 0);
-      triordinate dat = extract (request);
+      double x = 0.0;
+      double y = 0.0;
+      double zoom = 0.0;
+      sscanf(request, "GET /tile_x%lf_y%lf_z%lf.bmp", &x, &y, &zoom);
+      printf ("X: %lf, Y: %lf, Z: %lf", x, y, zoom);
       // were we able to read any data from the connection?
 
       // print entire request to the console
@@ -86,8 +90,7 @@ int main (int argc, char *argv[]) {
 
       //send the browser a simple html page using http
       printf (" *** Sending http response ***\n");
-      printf ("X: %f, Y: %f, Z: %d", dat.x, dat.y, dat.z);
-      serveBMP(connectionSocket, dat.x, dat.y, dat.z);
+      serveBMP(connectionSocket, x, y, zoom);
 
       // close the connection after sending the page- keep aust beautiful
       close(connectionSocket);
@@ -102,7 +105,7 @@ int main (int argc, char *argv[]) {
    return EXIT_SUCCESS;
 }
 
-void serveBMP (int socket, double x, double y, int z) {
+void serveBMP (int socket, double x, double y, double zoom) {
    char* message;
 
    // first send the http response header
@@ -118,10 +121,6 @@ void serveBMP (int socket, double x, double y, int z) {
 
    // now send the BMP
    writeHeader (socket);
-/*   double x = dat.x;
-   double y = dat.y;
-   double zoom = dat.z; */
-   double zoom = z;
    double zoom_x = x - 2.0/zoom;
    double zoom_y = y - 2.0/zoom;
    double seed[2] = {zoom_x,zoom_y};
@@ -266,103 +265,4 @@ void writeHeader (int socket) {
 
    bits32 importantColors = NUM_COLORS;
    write (socket, &importantColors, sizeof importantColors);
-}
-
-triordinate extract (char *message) {
-   triordinate dat;
-   int length = strlen(message);
-
-   char *xLoc = malloc (sizeof (char) * length);
-   char *yLoc = malloc (sizeof (char) * length);
-   char *zLoc = malloc (sizeof (char) * length);
-   int pos = 0;
-   int arrayPos = 0;
-   message = strstr(message, "_x");
-   while (message[pos] != 'x') {
-      pos++;
-   }
-
-   pos++;
-
-   while (message[pos] != '_') {
-      xLoc[arrayPos] = message[pos];
-      arrayPos++;
-      pos++;
-   }
-   arrayPos++;
-   xLoc[arrayPos] = '\0';
-   pos += 2;
-   arrayPos = 0;
-
-   while (message[pos] != '_') {
-      yLoc[arrayPos] = message[pos];
-      arrayPos++;
-      pos++;
-   }
-   arrayPos++;
-   yLoc[arrayPos] = '\0';
-   pos += 2;
-   arrayPos = 0;
-
-   while (message[pos] != '.') {
-      zLoc[arrayPos] = message[pos];
-      arrayPos++;
-      pos++;
-   }
-   arrayPos++;
-   zLoc[arrayPos] = '\0';
-   dat.x = myAtoD (xLoc);
-   dat.y = myAtoD (yLoc);
-   dat.z = myAtoL (zLoc);
-
-   free (xLoc);
-   free (yLoc);
-   free (zLoc);
-
-   return dat;
-
-}
-
-double myAtoD (char *message) {
-   printf("%s\n", message);
-   int i = 0; //start of string
-   int length = strlen(message)-1; //string length
-   int num1 = 0;
-   double num2 = 0.0;
-   int negative = FALSE;
-   if (message[i] == 45) {
-      i++;
-      negative = TRUE;
-   }
-   while (message[i] != '.') {
-      num1 *= 10;
-      num1 += (message[i]-ZERO);
-      i++;
-   }
-   while (length > i) {
-      num2 += (message[length]-ZERO);
-      num2 /= 10;
-      length--;
-   }
-   num2 = num1 + num2;
-   if (negative == TRUE) {
-      num2 *= -1.0;
-   }
-   return num2;
-}
-
-long myAtoL (char *message) {
-   int Pos = 0; //start of string position
-   long numLong = 0;
-   while (message[Pos] != '\0') {
-      if (message[Pos] >= '0' && message[Pos] <= '9') {
-         numLong *= 10;
-         numLong += (message[Pos] - ZERO);
-      }
-      Pos++;
-  }
-  if (message[0] == '-') {
-     numLong = numLong * -1;
-  }
-  return numLong;
 }
